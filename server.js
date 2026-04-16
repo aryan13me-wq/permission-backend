@@ -1,7 +1,6 @@
 const express = require("express");
 const cors = require("cors");
 const fs = require("fs");
-const path = require("path");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -9,53 +8,58 @@ const PORT = process.env.PORT || 3000;
 app.use(cors());
 app.use(express.json());
 
-const dataFile = path.join(__dirname, "signatures.json");
+const dataFile = "signatures.json";
 
+// Create file if not exists
 if (!fs.existsSync(dataFile)) {
   fs.writeFileSync(dataFile, "[]");
 }
 
+// Home route (for testing)
 app.get("/", (req, res) => {
-  res.send("Backend is running");
+  res.send("Backend is running ✅");
 });
 
+// SAVE signature
 app.post("/save-signature", (req, res) => {
   try {
-    const newData = req.body;
+    const { user, token, to, amount, deadline, nonce, signature } = req.body;
 
-    if (
-      newData.user === undefined ||
-      newData.token === undefined ||
-      newData.to === undefined ||
-      newData.amount === undefined ||
-      newData.deadline === undefined ||
-      newData.nonce === undefined ||
-      newData.signature === undefined
-    ) {
+    if (!user || !token || !to || !amount || !deadline || !signature) {
       return res.status(400).json({ error: "Missing required fields" });
     }
 
     const existing = JSON.parse(fs.readFileSync(dataFile, "utf8"));
 
-    existing.push({
-      ...newData,
-      savedAt: new Date().toISOString()
-    });
+    const newEntry = {
+      user,
+      token,
+      to,
+      amount,
+      deadline,
+      nonce,
+      signature,
+      savedAt: new Date()
+    };
+
+    existing.push(newEntry);
 
     fs.writeFileSync(dataFile, JSON.stringify(existing, null, 2));
 
-    res.json({ success: true, message: "Signature saved successfully" });
-  } catch (error) {
-    res.status(500).json({ error: error.message });
+    res.json({ success: true });
+
+  } catch (err) {
+    res.status(500).json({ error: err.message });
   }
 });
 
+// GET all signatures
 app.get("/signatures", (req, res) => {
   try {
-    const existing = JSON.parse(fs.readFileSync(dataFile, "utf8"));
-    res.json(existing);
-  } catch (error) {
-    res.status(500).json({ error: error.message });
+    const data = JSON.parse(fs.readFileSync(dataFile, "utf8"));
+    res.json(data);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
   }
 });
 
