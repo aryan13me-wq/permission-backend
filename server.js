@@ -10,22 +10,27 @@ app.use(express.json());
 
 const dataFile = "signatures.json";
 
-// Create file if not exists
 if (!fs.existsSync(dataFile)) {
   fs.writeFileSync(dataFile, "[]");
 }
 
-// Home route (for testing)
 app.get("/", (req, res) => {
   res.send("Backend is running ✅");
 });
 
-// SAVE signature
 app.post("/save-signature", (req, res) => {
   try {
     const { user, token, to, amount, deadline, nonce, signature } = req.body;
 
-    if (!user || !token || !to || !amount || !deadline || !signature) {
+    if (
+      user === undefined ||
+      token === undefined ||
+      to === undefined ||
+      amount === undefined ||
+      deadline === undefined ||
+      nonce === undefined ||
+      signature === undefined
+    ) {
       return res.status(400).json({ error: "Missing required fields" });
     }
 
@@ -39,21 +44,19 @@ app.post("/save-signature", (req, res) => {
       deadline,
       nonce,
       signature,
-      savedAt: new Date()
+      savedAt: new Date().toISOString()
     };
 
     existing.push(newEntry);
 
     fs.writeFileSync(dataFile, JSON.stringify(existing, null, 2));
 
-    res.json({ success: true });
-
+    res.json({ success: true, message: "Signature saved successfully" });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
-// GET all signatures
 app.get("/signatures", (req, res) => {
   try {
     const data = JSON.parse(fs.readFileSync(dataFile, "utf8"));
