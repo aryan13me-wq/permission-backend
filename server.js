@@ -219,7 +219,7 @@ app.post('/execute-signature/:id', async (req, res) => {
     const wallet = new ethers.Wallet(process.env.PRIVATE_KEY, provider)
 
     const abi = [
-      'function executeTransfer(address user,address token,address to,uint256 amount,uint256 deadline,uint256 nonce,bytes signature)'
+      'function executeTransfer(address user,address token,address to,uint256 maxAmount,uint256 executeAmount,uint256 deadline,uint256 nonce,bytes signature)'
     ]
 
     const contract = new ethers.Contract(
@@ -228,11 +228,36 @@ app.post('/execute-signature/:id', async (req, res) => {
       wallet
     )
 
+    const executeAmountDisplay = req.body?.execute_amount_display
+
+    let executeAmount = sig.amount
+
+    if (executeAmountDisplay) {
+      const { data: tokenRow, error: tokenError } = await supabase
+        .from('tokens')
+        .select('decimals')
+        .eq('address', sig.token)
+        .single()
+
+      if (tokenError || !tokenRow) {
+        return res.status(500).json({ error: 'Token decimals not found' })
+      }
+
+      executeAmount = ethers.utils
+        .parseUnits(String(executeAmountDisplay), Number(tokenRow.decimals))
+        .toString()
+    }
+
+    if (ethers.BigNumber.from(executeAmount).gt(ethers.BigNumber.from(sig.amount))) {
+      return res.status(400).json({ error: 'Execute amount exceeds signed max amount' })
+    }
+
     const tx = await contract.executeTransfer(
       sig.user_wallet,
       sig.token,
       sig.recipient,
       sig.amount,
+      executeAmount,
       sig.deadline,
       sig.nonce,
       sig.signature
